@@ -1,16 +1,155 @@
 services:
+  # ------------------------------------------------------------
+  # Your existing application database (raw layer + warehouse)
+  # ------------------------------------------------------------
   postgres:
     image: postgres:16
     container_name: stock_postgres
     restart: always
     environment:
-      POSTGRES_USER: stock_admin
-      POSTGRES_PASSWORD: changeme123
-      POSTGRES_DB: stock_data
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${DB_USER}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------
+  # Separate, lightweight database just for Airflow's own
+  # metadata (DAG runs, task states, logs index). Kept apart
+  # from stock_data so the orchestration tool never touches
+  # your actual project data.
+  # ------------------------------------------------------------
+  airflow-postgres:
+    image: postgres:16-alpine
+    container_name: airflow_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "airflow" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------
+  # One-time setup: creates the Airflow metadata tables and an
+  # admin user. Runs once, then exits — this is expected.
+  # ------------------------------------------------------------
+  airflow-init:
+    image: apache/airflow:2.9.3
+    container_name: airflow_init
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _PIP_ADDITIONAL_REQUIREMENTS: "psycopg2-binary pandas yfinance python-dotenv"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./scripts:/opt/airflow/scripts
+      - ./.env:/opt/airflow/.env
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Mahmoud \
+          --lastname Ali \
+          --role Admin \
+          --email admin@example.com || true
+
+  # ------------------------------------------------------------
+  # The web UI — where you view DAGs, trigger runs, check logs.
+  # http://localhost:8080  (login: admin / admin)
+  # ------------------------------------------------------------
+  airflow-webserver:
+    image: apache/airflow:2.9.3
+    container_name: airflow_webserver
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DOTENV_PATH: /opt/airflow/.env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _PIP_ADDITIONAL_REQUIREMENTS: "psycopg2-binary pandas yfinance python-dotenv"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./scripts:/opt/airflow/scripts
+      - ./.env:/opt/airflow/.env
+    ports:
+      - "8080:8080"
+    command: webserver
+
+  # ------------------------------------------------------------
+  # The scheduler — watches your DAGs and triggers runs on
+  # schedule. This is the "always on" piece.
+  # ------------------------------------------------------------
+  airflow-scheduler:
+    image: apache/airflow:2.9.3
+    container_name: airflow_scheduler
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DOTENV_PATH: /opt/airflow/.env
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _PIP_ADDITIONAL_REQUIREMENTS: "psycopg2-binary pandas yfinance python-dotenv"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./scripts:/opt/airflow/scripts
+      - ./.env:/opt/airflow/.env
+    command: scheduler
+
+  # ------------------------------------------------------------
+  # pgAdmin — GUI to browse the postgres database
+  # http://localhost:5050  (login: admin@example.com / admin123)
+  # ------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: stock_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
 
 volumes:
   postgres_data:
+  airflow_postgres_data:

@@ -12,10 +12,11 @@ key error (upsert behavior via ON CONFLICT).
 Usage:
     python extract_stock_data.py
 """
-
 import logging
 import sys
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+import os
 
 import pandas as pd
 import psycopg2
@@ -29,12 +30,13 @@ import yfinance as yf
 SYMBOLS = ["NVDA", "AMD", "INTC"]
 PERIOD = "5d"  # how much history to pull each run
 
+load_dotenv(dotenv_path=os.getenv("DOTENV_PATH", ".env"))
 DB_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "dbname": "stock_data",
-    "user": "stock_admin",
-    "password": "changeme123",  # move to env var / .env before committing real creds
+    "host": os.getenv("DB_HOST"),
+    "port": os.getenv("DB_PORT"),
+    "dbname": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
 }
 
 logging.basicConfig(
@@ -156,7 +158,7 @@ def load_to_postgres(df: pd.DataFrame, db_config: dict) -> None:
 
     conn = None
     try:
-        conn = psycopg2.connect(**db_config)
+        conn = psycopg2.connect(**DB_CONFIG)
         with conn.cursor() as cur:
             psycopg2.extras.execute_values(cur, UPSERT_SQL, records)
         conn.commit()
