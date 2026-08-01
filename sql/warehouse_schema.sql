@@ -5,12 +5,15 @@
 -- Purpose: Cleaned, structured data populated by PySpark after
 -- transforming rows from raw_stock_prices. Optimized for
 -- analytical queries and the dashboard layer.
+--
+-- Safe to re-run: uses IF NOT EXISTS so it won't error out if
+-- the tables/indexes already exist.
 -- ============================================================
 
 -- ------------------------------------------------------------
 -- Dimension: Stocks
 -- ------------------------------------------------------------
-CREATE TABLE dim_stock (
+CREATE TABLE IF NOT EXISTS dim_stock (
     stock_id SERIAL PRIMARY KEY,
     symbol VARCHAR(10) UNIQUE NOT NULL,
     company_name VARCHAR(100),
@@ -24,7 +27,7 @@ CREATE TABLE dim_stock (
 -- math in every analytical query (e.g. quarterly comparisons,
 -- day-of-week performance).
 -- ------------------------------------------------------------
-CREATE TABLE dim_date (
+CREATE TABLE IF NOT EXISTS dim_date (
     date_id SERIAL PRIMARY KEY,
     full_date DATE UNIQUE NOT NULL,
     day INT,
@@ -43,7 +46,7 @@ CREATE TABLE dim_date (
 -- here. Keeps a clean separation between raw ingestion and
 -- transformation, matching the pipeline architecture.
 -- ------------------------------------------------------------
-CREATE TABLE fact_stock_prices (
+CREATE TABLE IF NOT EXISTS fact_stock_prices (
     fact_id BIGSERIAL PRIMARY KEY,
     stock_id INT REFERENCES dim_stock(stock_id),
     date_id INT REFERENCES dim_date(date_id),
@@ -60,7 +63,7 @@ CREATE TABLE fact_stock_prices (
     UNIQUE (stock_id, date_id)
 );
 
-CREATE INDEX idx_fact_stock_prices_stock_date
+CREATE INDEX IF NOT EXISTS idx_fact_stock_prices_stock_date
     ON fact_stock_prices (stock_id, date_id);
 
 -- ------------------------------------------------------------
@@ -70,7 +73,7 @@ CREATE INDEX idx_fact_stock_prices_stock_date
 -- sparse (mostly zero on any given day) and not part of the
 -- core daily price analysis.
 -- ------------------------------------------------------------
-CREATE TABLE fact_corporate_actions (
+CREATE TABLE IF NOT EXISTS fact_corporate_actions (
     action_id BIGSERIAL PRIMARY KEY,
     stock_id INT REFERENCES dim_stock(stock_id),
     date_id INT REFERENCES dim_date(date_id),
@@ -79,3 +82,11 @@ CREATE TABLE fact_corporate_actions (
 
     UNIQUE (stock_id, date_id)
 );
+
+
+
+-- ============================================================
+--docker exec -it stock_postgres psql -U stock_admin -d stock_data -f /raw_layer.sql
+--docker cp sql/raw_layer.sql stock_postgres:/raw_layer.sql
+--docker cp sql/warehouse_schema.sql stock_postgres:/warehouse_schema.sql
+-- ============================================================
