@@ -5,9 +5,12 @@
 -- Purpose: Stores stock data as close as possible to its
 -- original form from yfinance, before any cleaning or
 -- transformation. This is the landing zone for daily extraction.
+--
+-- Safe to re-run: uses IF NOT EXISTS so it won't error out if
+-- the table/index already exist.
 -- ============================================================
 
-CREATE TABLE raw_stock_prices (
+CREATE TABLE IF NOT EXISTS raw_stock_prices (
     id BIGSERIAL PRIMARY KEY,
     symbol VARCHAR(10) NOT NULL,
     price_date DATE NOT NULL,
@@ -26,7 +29,7 @@ CREATE TABLE raw_stock_prices (
 );
 
 -- Helpful index for querying by symbol across date ranges
-CREATE INDEX idx_raw_stock_prices_symbol_date
+CREATE INDEX IF NOT EXISTS idx_raw_stock_prices_symbol_date
     ON raw_stock_prices (symbol, price_date);
 
 -- ============================================================
@@ -39,4 +42,8 @@ CREATE INDEX idx_raw_stock_prices_symbol_date
 --
 -- ingested_at tracks when the row was actually loaded, useful
 -- for debugging failed/re-run DAG executions.
+-- ============================================================
+--docker exec -it stock_postgres psql -U stock_admin -d stock_data -f /raw_layer.sql
+--docker cp sql/raw_layer.sql stock_postgres:/raw_layer.sql
+--docker cp sql/warehouse_schema.sql stock_postgres:/warehouse_schema.sql
 -- ============================================================
