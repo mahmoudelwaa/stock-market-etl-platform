@@ -56,9 +56,9 @@ CREATE TABLE IF NOT EXISTS fact_stock_prices (
     close NUMERIC(12,4),
     volume BIGINT,
     daily_return NUMERIC(8,4),
-    moving_avg_7d NUMERIC(12,4),
-    moving_avg_30d NUMERIC(12,4),
-    volatility_30d NUMERIC(12,4),
+    moving_avg_5d NUMERIC(12,4),
+    moving_avg_20d NUMERIC(12,4),
+    volatility_20d NUMERIC(12,4),
 
     UNIQUE (stock_id, date_id)
 );
