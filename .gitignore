@@ -6,6 +6,7 @@ venv/
 
 # Environment variables (API keys)
 .env
+.env.local
 
 # Docker
 *.log
@@ -16,4 +17,5 @@ Thumbs.db
 
 # IDE
 .vscode/
-.idea/.env
+.idea/
+logs/

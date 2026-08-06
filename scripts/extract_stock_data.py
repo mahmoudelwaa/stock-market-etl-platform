@@ -28,9 +28,9 @@ import yfinance as yf
 # ------------------------------------------------------------
 
 SYMBOLS = ["NVDA", "AMD", "INTC"]
-PERIOD = "5d"  # how much history to pull each run
+PERIOD = "1mo"  # how much history to pull each run
 
-load_dotenv(dotenv_path=os.getenv("DOTENV_PATH", ".env"))
+load_dotenv(dotenv_path=os.getenv("DOTENV_PATH", ".env.local"), override=True)
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
     "port": os.getenv("DB_PORT"),

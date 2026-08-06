@@ -47,7 +47,7 @@ services:
   # admin user. Runs once, then exits — this is expected.
   # ------------------------------------------------------------
   airflow-init:
-    image: apache/airflow:2.9.3
+    build: .
     container_name: airflow_init
     depends_on:
       airflow-postgres:
@@ -56,7 +56,6 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      _PIP_ADDITIONAL_REQUIREMENTS: "psycopg2-binary pandas yfinance python-dotenv"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
@@ -81,7 +80,7 @@ services:
   # http://localhost:8080  (login: admin / admin)
   # ------------------------------------------------------------
   airflow-webserver:
-    image: apache/airflow:2.9.3
+    build: .
     container_name: airflow_webserver
     restart: always
     depends_on:
@@ -91,11 +90,14 @@ services:
         condition: service_healthy
     environment:
       DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DOTENV_PATH: /opt/airflow/.env
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      _PIP_ADDITIONAL_REQUIREMENTS: "psycopg2-binary pandas yfinance python-dotenv"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
@@ -111,7 +113,7 @@ services:
   # schedule. This is the "always on" piece.
   # ------------------------------------------------------------
   airflow-scheduler:
-    image: apache/airflow:2.9.3
+    build: .
     container_name: airflow_scheduler
     restart: always
     depends_on:
@@ -121,11 +123,14 @@ services:
         condition: service_healthy
     environment:
       DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DOTENV_PATH: /opt/airflow/.env
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      _PIP_ADDITIONAL_REQUIREMENTS: "psycopg2-binary pandas yfinance python-dotenv"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./logs:/opt/airflow/logs
