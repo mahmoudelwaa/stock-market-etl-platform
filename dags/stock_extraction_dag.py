@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 # scripts/ is mounted at /opt/airflow/scripts in docker-compose.yml
 SCRIPTS_PATH = "/opt/airflow/scripts"
@@ -44,3 +45,12 @@ with DAG(
         task_id="extract_stock_data",
         python_callable=run_extraction,
     )
+
+    # Fires the transformation DAG immediately after a successful extraction
+    # run, instead of relying on a fixed time offset between the two DAGs.
+    trigger_transform = TriggerDagRunOperator(
+        task_id="trigger_transformation",
+        trigger_dag_id="stock_transformation_daily",
+    )
+
+    extract_task >> trigger_transform

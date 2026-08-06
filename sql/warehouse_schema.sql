@@ -8,6 +8,16 @@
 --
 -- Safe to re-run: uses IF NOT EXISTS so it won't error out if
 -- the tables/indexes already exist.
+--
+-- CHANGELOG:
+--   2026-08-06: Renamed moving_avg_7d -> moving_avg_5d,
+--   moving_avg_30d -> moving_avg_20d, volatility_30d ->
+--   volatility_20d, to align all indicator windows (5-day and
+--   20-day trading windows) and match the actual columns
+--   PySpark writes to in Phase 5. Applied live via:
+--     ALTER TABLE fact_stock_prices RENAME COLUMN moving_avg_7d TO moving_avg_5d;
+--     ALTER TABLE fact_stock_prices RENAME COLUMN moving_avg_30d TO moving_avg_20d;
+--     ALTER TABLE fact_stock_prices RENAME COLUMN volatility_30d TO volatility_20d;
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -19,6 +29,13 @@ CREATE TABLE IF NOT EXISTS dim_stock (
     company_name VARCHAR(100),
     sector VARCHAR(50)
 );
+
+-- Seed data: tracked symbols for this project (NVIDIA + competitors)
+INSERT INTO dim_stock (symbol, company_name, sector) VALUES
+    ('NVDA', 'NVIDIA Corporation', 'Technology'),
+    ('AMD', 'Advanced Micro Devices', 'Technology'),
+    ('INTC', 'Intel Corporation', 'Technology')
+ON CONFLICT (symbol) DO NOTHING;
 
 -- ------------------------------------------------------------
 -- Dimension: Dates
@@ -45,6 +62,10 @@ CREATE TABLE IF NOT EXISTS dim_date (
 -- computed by PySpark during the transform step, not derived
 -- here. Keeps a clean separation between raw ingestion and
 -- transformation, matching the pipeline architecture.
+--
+-- Window sizes: 5-day and 20-day trading windows, consistently
+-- applied across all three indicators (moving_avg_5d/20d and
+-- volatility_20d).
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS fact_stock_prices (
     fact_id BIGSERIAL PRIMARY KEY,
@@ -82,8 +103,6 @@ CREATE TABLE IF NOT EXISTS fact_corporate_actions (
 
     UNIQUE (stock_id, date_id)
 );
-
-
 
 -- ============================================================
 --docker exec -it stock_postgres psql -U stock_admin -d stock_data -f /raw_layer.sql
